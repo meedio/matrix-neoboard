@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+import { SensorAPI, SnapDragActions } from '@hello-pangea/dnd';
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
-import { SensorAPI, SnapDragActions } from 'react-beautiful-dnd';
 
 // This hook is based on useKeyboardSensor() from react-beautiful-dnd.
 // The original code with all its dependencies is spread over multiple files,

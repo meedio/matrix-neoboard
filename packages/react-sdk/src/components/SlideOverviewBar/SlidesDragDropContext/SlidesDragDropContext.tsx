@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { PropsWithChildren, useCallback } from 'react';
 import {
   DragDropContext,
   DragStart,
@@ -23,7 +22,8 @@ import {
   ResponderProvided,
   useMouseSensor,
   useTouchSensor,
-} from 'react-beautiful-dnd';
+} from '@hello-pangea/dnd';
+import { PropsWithChildren, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useActiveWhiteboardInstance } from '../../../state';
 import { useCustomKeyboardSensor } from './useCustomKeyboardSensor';

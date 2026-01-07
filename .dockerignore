@@ -1,5 +1,0 @@
-# ignore all files except the build folder
-*
-!/build
-!/LICENSE
-!/yarn.lock

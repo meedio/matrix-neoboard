@@ -58,7 +58,8 @@ export function base64ToBlob(element: ImageElement, base64: string): Blob {
 
   const fileToImage = (base64: string) => {
     const byteNumbers = base64ToUint8Array(base64);
-    return new Blob([byteNumbers]);
+    const bytes = new Uint8Array(byteNumbers);
+    return new Blob([bytes.buffer]);
   };
 
   try {

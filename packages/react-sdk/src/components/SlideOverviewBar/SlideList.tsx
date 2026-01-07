@@ -40,7 +40,9 @@ export function SlideList() {
           <SlideListTabs
             aria-label={slideListTitle}
             isDraggingOver={snapshot.isDraggingOver}
-            ref={provided.innerRef}
+            ref={(el) => {
+              provided.innerRef(el instanceof HTMLElement ? el : null);
+            }}
             {...provided.droppableProps}
           >
             {slideIds.map((slideId, index) => (

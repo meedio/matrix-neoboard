@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
+import { Draggable } from '@hello-pangea/dnd';
 import { Tab } from '@mui/base';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import { alpha, Stack, styled, Tooltip, Typography } from '@mui/material';
 import { unstable_useId as useId, visuallyHidden } from '@mui/utils';
-import { Draggable } from 'react-beautiful-dnd';
 import { useTranslation } from 'react-i18next';
 import { SlideProvider, useSlideIsLocked } from '../../state';
 import { SlidePreview } from '../Whiteboard';

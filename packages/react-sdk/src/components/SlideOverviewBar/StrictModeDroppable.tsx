@@ -17,8 +17,8 @@
 // Hack to make React 18 StrictMode work with react-beautiful-dnd
 // from https://github.com/atlassian/react-beautiful-dnd/issues/2399#issuecomment-1167427762
 
+import { Droppable, DroppableProps } from '@hello-pangea/dnd';
 import { useEffect, useState } from 'react';
-import { Droppable, DroppableProps } from 'react-beautiful-dnd';
 
 export const StrictModeDroppable = ({ children, ...props }: DroppableProps) => {
   const [enabled, setEnabled] = useState(false);
