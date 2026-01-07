@@ -14,7 +14,7 @@ ENV REACT_APP_REVISION=${REACT_APP_REVISION}
 
 RUN rm -rf /docker-entrypoint.d/*
 COPY ./matrix-neoboard-widget/nginx.conf /etc/nginx/conf.d/default.conf
-RUN sed -i '1i pid /tmp/nginx.pid;' /etc/nginx/nginx.conf
+RUN sed -i 's|^pid .*;|pid /tmp/nginx.pid;|g' /etc/nginx/nginx.conf
 
 COPY --from=build /repo/matrix-neoboard-widget/build/ /usr/share/nginx/html/
 
