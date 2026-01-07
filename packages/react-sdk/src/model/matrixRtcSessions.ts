@@ -24,7 +24,7 @@ export const RTC_APPLICATION_WHITEBOARD = 'net.nordeck.whiteboard';
 export const DEFAULT_RTC_EXPIRE_DURATION = 1000 * 60 * 60 * 4;
 
 // unstable prefix for m.rtc.member in MSC4143
-export const STATE_EVENT_RTC_MEMBER = 'org.matrix.msc3401.call.member';
+export const STATE_EVENT_RTC_MEMBER = 'net.nordeck.neoboard.rtc.member';
 
 // Following Matrix JS SDK's SessionMembershipData
 // see https://github.com/matrix-org/matrix-js-sdk/blob/d6ede767c929f7be179d456b5a0433be21ccaf7c/src/matrixrtc/CallMembership.ts#L35
