@@ -1,22 +1,18 @@
-FROM aquasec/trivy:latest AS scanner
+FROM node:24-alpine AS build
+WORKDIR /repo
 
-# Copy yarn.lock to run SBOM scan
-COPY --from=root yarn.lock /tmp
-RUN trivy fs --format spdx-json --scanners "license" /tmp/yarn.lock > /tmp/sbom.spdx.json
+COPY . .
 
-FROM ghcr.io/nordeck/matrix-widget-toolkit/widget-server:1.1.1@sha256:e20146b7f11dfb663874fed7a289e412ce6e8e623c6eb2261e35a220029ba042
+RUN yarn install --frozen-lockfile
+RUN yarn workspace @nordeck/matrix-neoboard-widget build
 
+FROM nginx:1.27-alpine AS runtime
 ARG REACT_APP_VERSION
 ARG REACT_APP_REVISION
 ENV REACT_APP_VERSION=${REACT_APP_VERSION}
 ENV REACT_APP_REVISION=${REACT_APP_REVISION}
 
-ADD --chown=nginx:nginx build /usr/share/nginx/html/
+RUN rm /etc/nginx/conf.d/default.conf
+COPY ./matrix-neoboard-widget/nginx.conf /etc/nginx/conf.d/default.conf
 
-# Add SBOM to the public folder
-COPY --from=scanner --chown=nginx:nginx /tmp/sbom.spdx.json /usr/share/nginx/html/sbom.spdx.json
-
-# Allow loading images from all HTTP(s) URLs and blobs
-ENV CSP_IMG_SRC="http: https: blob:"
-# Also with fetch/XMLHttpRequest
-ENV CSP_CONNECT_SRC="http: https: wss: blob:"
+COPY --from=build /repo/matrix-neoboard-widget/build/ /usr/share/nginx/html/
