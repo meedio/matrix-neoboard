@@ -18,5 +18,5 @@ RUN sed -i '1i pid /tmp/nginx.pid;' /etc/nginx/nginx.conf
 
 COPY --from=build /repo/matrix-neoboard-widget/build/ /usr/share/nginx/html/
 
-USER nginx
+USER 101
 EXPOSE 8080
