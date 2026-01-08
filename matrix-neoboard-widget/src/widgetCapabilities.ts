@@ -107,6 +107,11 @@ export const widgetCapabilities = [
     EventDirection.Receive,
     TO_DEVICE_MESSAGE_CONNECTION_SIGNALING,
   ),
+  WidgetEventCapability.forRoomEvent(EventDirection.Send, 'm.room.encrypted'),
+  WidgetEventCapability.forRoomEvent(
+    EventDirection.Receive,
+    'm.room.encrypted',
+  ),
   MatrixCapabilities.MSC3846TurnServers,
   WidgetApiFromWidgetAction.MSC4039UploadFileAction,
   WidgetApiFromWidgetAction.MSC4039DownloadFileAction,
