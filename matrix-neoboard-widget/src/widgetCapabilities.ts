@@ -38,6 +38,8 @@ import {
   WidgetEventCapability,
 } from 'matrix-widget-api';
 
+const { userId, deviceId } = extractWidgetParameters();
+
 export const widgetCapabilities = [
   WidgetEventCapability.forRoomEvent(
     EventDirection.Send,
@@ -105,19 +107,6 @@ export const widgetCapabilities = [
     EventDirection.Receive,
     TO_DEVICE_MESSAGE_CONNECTION_SIGNALING,
   ),
-  WidgetEventCapability.forRoomEvent(EventDirection.Send, 'm.room.encrypted'),
-  WidgetEventCapability.forRoomEvent(
-    EventDirection.Receive,
-    'm.room.encrypted',
-  ),
-  WidgetEventCapability.forStateEvent(
-    EventDirection.Send,
-    STATE_EVENT_WHITEBOARD_SESSIONS,
-  ),
-  WidgetEventCapability.forStateEvent(
-    EventDirection.Receive,
-    STATE_EVENT_WHITEBOARD_SESSIONS,
-  ),
   MatrixCapabilities.MSC3846TurnServers,
   WidgetApiFromWidgetAction.MSC4039UploadFileAction,
   WidgetApiFromWidgetAction.MSC4039DownloadFileAction,
@@ -128,6 +117,8 @@ if (matrixRtcMode) {
     WidgetEventCapability.forStateEvent(
       EventDirection.Send,
       STATE_EVENT_RTC_MEMBER,
+      // We only need to write the own state, but read state from everyone
+      `_${userId}_${deviceId}`,
     ),
     WidgetEventCapability.forStateEvent(
       EventDirection.Receive,
@@ -135,5 +126,18 @@ if (matrixRtcMode) {
     ),
     MatrixCapabilities.MSC4157SendDelayedEvent,
     MatrixCapabilities.MSC4157UpdateDelayedEvent,
+  );
+} else {
+  widgetCapabilities.push(
+    WidgetEventCapability.forStateEvent(
+      EventDirection.Send,
+      STATE_EVENT_WHITEBOARD_SESSIONS,
+      // We only need to write the own state, but read state from everyone
+      userId,
+    ),
+    WidgetEventCapability.forStateEvent(
+      EventDirection.Receive,
+      STATE_EVENT_WHITEBOARD_SESSIONS,
+    ),
   );
 }
