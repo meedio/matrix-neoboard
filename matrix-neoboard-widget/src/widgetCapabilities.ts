@@ -118,17 +118,22 @@ export const widgetCapabilities = [
     EventDirection.Receive,
     STATE_EVENT_WHITEBOARD_SESSIONS,
   ),
-  WidgetEventCapability.forStateEvent(
-    EventDirection.Send,
-    STATE_EVENT_RTC_MEMBER,
-  ),
-  WidgetEventCapability.forStateEvent(
-    EventDirection.Receive,
-    STATE_EVENT_RTC_MEMBER,
-  ),
-  MatrixCapabilities.MSC4157SendDelayedEvent,
-  MatrixCapabilities.MSC4157UpdateDelayedEvent,
   MatrixCapabilities.MSC3846TurnServers,
   WidgetApiFromWidgetAction.MSC4039UploadFileAction,
   WidgetApiFromWidgetAction.MSC4039DownloadFileAction,
 ];
+
+if (matrixRtcMode) {
+  widgetCapabilities.push(
+    WidgetEventCapability.forStateEvent(
+      EventDirection.Send,
+      STATE_EVENT_RTC_MEMBER,
+    ),
+    WidgetEventCapability.forStateEvent(
+      EventDirection.Receive,
+      STATE_EVENT_RTC_MEMBER,
+    ),
+    MatrixCapabilities.MSC4157SendDelayedEvent,
+    MatrixCapabilities.MSC4157UpdateDelayedEvent,
+  );
+}
