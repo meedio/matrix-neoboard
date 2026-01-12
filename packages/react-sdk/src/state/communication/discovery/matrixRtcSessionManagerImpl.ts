@@ -112,7 +112,6 @@ export class MatrixRtcSessionManagerImpl implements MatrixRtcSessionManager {
     private readonly widgetApiPromise: Promise<WidgetApi> | WidgetApi,
     private readonly sessionTimeout = DEFAULT_RTC_EXPIRE_DURATION,
     private readonly wellKnownPollingInterval = 60 * 1000,
-    // kept for signature compatibility; not used while delayed-events are disabled
     private readonly removeSessionDelay: number = 8000,
   ) {}
 
@@ -549,7 +548,6 @@ export class MatrixRtcSessionManagerImpl implements MatrixRtcSessionManager {
           session_id: sessionId,
           call_id: whiteboardId,
           ended: true,
-          // keep required fields if your validator expects them; minimal payload shown
         } as RTCSessionRoomEventContent,
         { stateKey: sessionId },
       );
