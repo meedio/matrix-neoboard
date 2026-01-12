@@ -124,6 +124,14 @@ if (matrixRtcMode) {
       EventDirection.Receive,
       STATE_EVENT_RTC_MEMBER,
     ),
+    WidgetEventCapability.forRoomEvent(
+      EventDirection.Receive,
+      STATE_EVENT_RTC_MEMBER,
+    ),
+    WidgetEventCapability.forRoomEvent(
+      EventDirection.Send,
+      STATE_EVENT_RTC_MEMBER,
+    ),
     MatrixCapabilities.MSC4157SendDelayedEvent,
     MatrixCapabilities.MSC4157UpdateDelayedEvent,
   );
