@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-import { getEnvironment } from '@matrix-widget-toolkit/mui';
+// import { getEnvironment } from '@matrix-widget-toolkit/mui';
 
 export function isMatrixRtcMode(): boolean {
-  return getEnvironment('REACT_APP_RTC') === 'matrixrtc';
+  // return getEnvironment('REACT_APP_RTC') === 'matrixrtc';
+  return true;
 }
 
 export function normalizeMatrixUserId(userId: string): string {
