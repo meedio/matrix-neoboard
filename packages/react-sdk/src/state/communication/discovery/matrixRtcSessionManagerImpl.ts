@@ -560,6 +560,10 @@ export class MatrixRtcSessionManagerImpl implements MatrixRtcSessionManager {
     if (!userId || !deviceId || !whiteboardId || !sessionId) {
       this.logger.error(
         'Unknown user id or device id or whiteboard id when patching RTC session',
+        `\n deviceId: ${deviceId}`,
+        `\n whiteboardId: ${whiteboardId}`,
+        `\n sessionId: ${sessionId}`,
+        `\n userId: ${userId}`,
       );
       throw new Error('Unknown user id or device id or whiteboard id');
     }
