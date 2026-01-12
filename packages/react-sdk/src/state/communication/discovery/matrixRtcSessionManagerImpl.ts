@@ -15,9 +15,8 @@
  */
 
 import { StateEvent, WidgetApi } from '@matrix-widget-toolkit/api';
-import { clone, isEqual, isError } from 'lodash';
+import { clone, isEqual } from 'lodash';
 import { getLogger } from 'loglevel';
-import { UpdateDelayedEventAction } from 'matrix-widget-api';
 import {
   Observable,
   Subject,
@@ -59,6 +58,7 @@ function isRTCSessionRoomEvent(ev: unknown): ev is RTCSessionRoomEvent {
     typeof obj.type === 'string' &&
     typeof obj.sender === 'string' &&
     typeof obj.room_id === 'string' &&
+    typeof obj.state_key === 'string' &&
     !!content &&
     typeof content === 'object' &&
     typeof content.session_id === 'string' &&
@@ -69,30 +69,21 @@ function isRTCSessionRoomEvent(ev: unknown): ev is RTCSessionRoomEvent {
 /**
  * Minimal “extra methods” surface used by this manager.
  * These methods may or may not exist depending on widget API implementation / capabilities.
+ *
+ * NOTE: We intentionally use STATE variants (not room event variants).
+ * Membership is represented as a state event keyed by sessionId.
  */
 type WidgetApiRtcExtensions = {
-  observeRoomEvents: (eventType: string) => Observable<unknown>;
-  receiveRoomEvents: (
+  observeStateEvents: (eventType: string) => Observable<unknown>;
+  receiveStateEvents: (
     eventType: string,
+    opts?: { stateKey?: string },
   ) => Promise<unknown[] | null | undefined>;
-  sendEvent: (eventType: string, content: unknown) => Promise<void>;
-
-  // Delayed events variants
-  sendDelayedEvent: (
+  sendStateEvent: (
     eventType: string,
     content: unknown,
-    delayMs: number,
-  ) => Promise<{ delay_id: string }>;
-  sendDelayedStateEvent: (
-    eventType: string,
-    content: unknown,
-    delayMs: number,
     opts: { stateKey: string },
-  ) => Promise<{ delay_id: string }>;
-  updateDelayedEvent: (
-    delayId: string,
-    action: UpdateDelayedEventAction,
-  ) => Promise<void>;
+  ) => Promise<unknown>;
 };
 
 function hasFn<K extends keyof WidgetApiRtcExtensions>(
@@ -117,17 +108,11 @@ export class MatrixRtcSessionManagerImpl implements MatrixRtcSessionManager {
   private wellKnownFoci: RTCFocus[] = [];
   private activeFocus: RTCFocus | undefined;
 
-  /**
-   * Holds remove membership event delay id.
-   * Is undefined if homeserver doesn't support delayed events (or we can't use it here).
-   * Is assigned undefined if cannot refresh a delayed event with this id.
-   */
-  private removeSessionDelayId?: string;
-
   constructor(
     private readonly widgetApiPromise: Promise<WidgetApi> | WidgetApi,
     private readonly sessionTimeout = DEFAULT_RTC_EXPIRE_DURATION,
     private readonly wellKnownPollingInterval = 60 * 1000,
+    // kept for signature compatibility; not used while delayed-events are disabled
     private readonly removeSessionDelay: number = 8000,
   ) {}
 
@@ -158,8 +143,9 @@ export class MatrixRtcSessionManagerImpl implements MatrixRtcSessionManager {
     return this.activeFocus;
   }
 
+  // delayed events disabled
   getRemoveSessionDelayId(): string | undefined {
-    return this.removeSessionDelayId;
+    return undefined;
   }
 
   observeSessionJoined(): Observable<Session> {
@@ -201,17 +187,18 @@ export class MatrixRtcSessionManagerImpl implements MatrixRtcSessionManager {
       .subscribe();
 
     await this.refreshOwnSession(sessionId, whiteboardId);
-    await this.scheduleRemoveMembershipDelayedEvent(widgetApi, sessionId);
 
+    // observe STATE events for membership changes
     from(Promise.resolve(this.widgetApiPromise))
       .pipe(
         switchMap((api) => {
-          if (!hasFn(api, 'observeRoomEvents')) {
+          const apiUnknown: unknown = api;
+          if (!hasFn(apiUnknown, 'observeStateEvents')) {
             return new Observable<unknown>((subscriber) =>
               subscriber.complete(),
             );
           }
-          return api.observeRoomEvents(STATE_EVENT_RTC_MEMBER);
+          return apiUnknown.observeStateEvents(STATE_EVENT_RTC_MEMBER);
         }),
         filter(isRTCSessionRoomEvent),
         takeUntil(this.destroySubject),
@@ -227,13 +214,6 @@ export class MatrixRtcSessionManagerImpl implements MatrixRtcSessionManager {
           this.removeSession(rtcSession.content.session_id, rtcSession.sender);
           if (rtcSession.content.session_id === sessionId) {
             await this.refreshOwnSession(sessionId, whiteboardId);
-
-            if (!this.removeSessionDelayId || rtcSession.sender !== userId) {
-              await this.scheduleRemoveMembershipDelayedEvent(
-                widgetApi,
-                sessionId,
-              );
-            }
           }
           return;
         }
@@ -250,84 +230,6 @@ export class MatrixRtcSessionManagerImpl implements MatrixRtcSessionManager {
     this.joinState = { sessionId, whiteboardId };
 
     return { sessionId };
-  }
-
-  /**
-   * Sends a remove membership delayed event, updates delay id.
-   * Refreshes a delayed event periodically.
-   * Invalidates a delay id if failed to refresh.
-   *
-   * NOTE: this is best-effort. If the widget API / HS does not support delayed
-   * room events, this becomes a no-op and we rely on expires.
-   */
-  private async scheduleRemoveMembershipDelayedEvent(
-    widgetApi: WidgetApi,
-    sessionId: string,
-  ): Promise<void> {
-    let removeSessionDelayId: string | undefined;
-
-    try {
-      const apiUnknown: unknown = widgetApi;
-
-      if (hasFn(apiUnknown, 'sendDelayedEvent')) {
-        ({ delay_id: removeSessionDelayId } = await apiUnknown.sendDelayedEvent(
-          STATE_EVENT_RTC_MEMBER,
-          { session_id: sessionId, ended: true },
-          this.removeSessionDelay,
-        ));
-      } else if (hasFn(apiUnknown, 'sendDelayedStateEvent')) {
-        ({ delay_id: removeSessionDelayId } =
-          await apiUnknown.sendDelayedStateEvent(
-            STATE_EVENT_RTC_MEMBER,
-            {},
-            this.removeSessionDelay,
-            { stateKey: sessionId },
-          ));
-      }
-    } catch (ex) {
-      this.logger.error(
-        'Could not send remove membership delayed event:',
-        isError(ex) ? ex.message : ex,
-      );
-    }
-
-    if (removeSessionDelayId) {
-      interval(this.removeSessionDelay * 0.75)
-        .pipe(
-          takeUntil(this.destroySubject),
-          takeUntil(this.leaveSubject),
-          switchMap(() => {
-            const apiUnknown: unknown = widgetApi;
-            if (!hasFn(apiUnknown, 'updateDelayedEvent')) {
-              return new Observable<void>((subscriber) =>
-                subscriber.complete(),
-              );
-            }
-            return from(
-              apiUnknown.updateDelayedEvent(
-                removeSessionDelayId,
-                UpdateDelayedEventAction.Restart,
-              ),
-            );
-          }),
-        )
-        .subscribe({
-          error: (err) => {
-            if (
-              this.removeSessionDelayId &&
-              this.removeSessionDelayId === removeSessionDelayId
-            ) {
-              this.removeSessionDelayId = undefined;
-            }
-            this.logger.error(
-              'Could not refresh delayed event:',
-              isError(err) ? err.message : err,
-            );
-          },
-        });
-
-      this.removeSessionDelayId = removeSessionDelayId;
-    }
   }
 
   async leave(): Promise<void> {
@@ -350,18 +252,7 @@ export class MatrixRtcSessionManagerImpl implements MatrixRtcSessionManager {
       this.removeSession(sessionId, userId);
     }
 
-    await this.endRtcSession(sessionId);
-
-    if (this.removeSessionDelayId) {
-      const apiUnknown: unknown = widgetApi;
-      if (hasFn(apiUnknown, 'updateDelayedEvent')) {
-        apiUnknown.updateDelayedEvent(
-          this.removeSessionDelayId,
-          UpdateDelayedEventAction.Cancel,
-        );
-      }
-      this.removeSessionDelayId = undefined;
-    }
+    await this.endRtcSession(sessionId, whiteboardId);
   }
 
   destroy(): void {
@@ -410,15 +301,14 @@ export class MatrixRtcSessionManagerImpl implements MatrixRtcSessionManager {
 
     if (!this.joinState) {
       this.logger.debug(
-        'Not joined yet, need to retrieve session member room events',
+        'Not joined yet, need to retrieve session member STATE events',
       );
       try {
         const widgetApi = await this.widgetApiPromise;
         const apiUnknown: unknown = widgetApi;
 
-        // best-effort: if receiveRoomEvents exists use it; else fall back to cache (empty).
-        if (hasFn(apiUnknown, 'receiveRoomEvents')) {
-          const evs = await apiUnknown.receiveRoomEvents(
+        if (hasFn(apiUnknown, 'receiveStateEvents')) {
+          const evs = await apiUnknown.receiveStateEvents(
             STATE_EVENT_RTC_MEMBER,
           );
           sessions = (evs ?? []).filter(isRTCSessionRoomEvent);
@@ -427,7 +317,7 @@ export class MatrixRtcSessionManagerImpl implements MatrixRtcSessionManager {
         }
       } catch (error) {
         this.logger.error(
-          'Failed to receive session member room events',
+          'Failed to receive session member STATE events',
           error,
         );
         return;
@@ -603,6 +493,7 @@ export class MatrixRtcSessionManagerImpl implements MatrixRtcSessionManager {
       const updatedSession: RTCSessionRoomEventContent = {
         ...baseSession,
         session_id: sessionId,
+        call_id: whiteboardId, // ensure always present
         expires,
         foci_preferred,
         ended: false,
@@ -612,12 +503,18 @@ export class MatrixRtcSessionManagerImpl implements MatrixRtcSessionManager {
 
       if (!isEqual(updatedSession, prev)) {
         const apiUnknown: unknown = widgetApi;
-        if (!hasFn(apiUnknown, 'sendEvent')) {
-          throw new Error('WidgetApi missing sendEvent');
+        if (!hasFn(apiUnknown, 'sendStateEvent')) {
+          throw new Error('WidgetApi missing sendStateEvent');
         }
-        await apiUnknown.sendEvent(STATE_EVENT_RTC_MEMBER, updatedSession);
+
+        await apiUnknown.sendStateEvent(
+          STATE_EVENT_RTC_MEMBER,
+          updatedSession,
+          { stateKey: sessionId },
+        );
+
         this.logger.debug(
-          'RTC session room-event sent',
+          'RTC session STATE event sent',
           JSON.stringify(updatedSession),
         );
       }
@@ -626,12 +523,15 @@ export class MatrixRtcSessionManagerImpl implements MatrixRtcSessionManager {
     }
   }
 
-  private async endRtcSession(sessionId: string): Promise<void> {
+  private async endRtcSession(
+    sessionId: string,
+    whiteboardId: string,
+  ): Promise<void> {
     const widgetApi = await this.widgetApiPromise;
     const { userId, deviceId } = widgetApi.widgetParameters;
 
     this.logger.debug(
-      'Ending RTC session with ended marker (room event)',
+      'Ending RTC session with ended marker (STATE event)',
       userId,
       deviceId,
       sessionId,
@@ -639,13 +539,20 @@ export class MatrixRtcSessionManagerImpl implements MatrixRtcSessionManager {
 
     try {
       const apiUnknown: unknown = widgetApi;
-      if (!hasFn(apiUnknown, 'sendEvent')) {
-        throw new Error('WidgetApi missing sendEvent');
+      if (!hasFn(apiUnknown, 'sendStateEvent')) {
+        throw new Error('WidgetApi missing sendStateEvent');
       }
-      await apiUnknown.sendEvent(STATE_EVENT_RTC_MEMBER, {
-        session_id: sessionId,
-        ended: true,
-      } as RTCSessionRoomEventContent);
+
+      await apiUnknown.sendStateEvent(
+        STATE_EVENT_RTC_MEMBER,
+        {
+          session_id: sessionId,
+          call_id: whiteboardId,
+          ended: true,
+          // keep required fields if your validator expects them; minimal payload shown
+        } as RTCSessionRoomEventContent,
+        { stateKey: sessionId },
+      );
     } catch (ex) {
       this.logger.error('Error while ending RTC session', ex);
     }

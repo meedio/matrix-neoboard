@@ -110,7 +110,7 @@ export function useOwnedWhiteboard(): UseOwnedWhiteboardResponse {
       ).unwrap();
 
       const result = await updateWhiteboard({
-        whiteboardId: widgetApi.widgetId,
+        whiteboardId: widgetApi.widgetParameters.roomId!,
         content: {
           documentId,
         },
