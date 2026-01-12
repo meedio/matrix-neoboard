@@ -44,9 +44,7 @@ if (version) {
   );
 }
 
-if (process.env.NODE_ENV === 'development') {
-  log.setDefaultLevel('debug');
-}
+log.setDefaultLevel('debug');
 
 const widgetApiPromise = WidgetApiImpl.create({
   capabilities: widgetCapabilities,
